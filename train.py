@@ -13,12 +13,13 @@ if __name__ == '__main__':
     
     # Load TRAINING dataset
     dataset_train = AudioDataset(dataset_path="dataset_train.txt", included_classes=labels, transform=AudioPreprocessingLayer(
-        input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000, augment=True
+        input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000, augment=False
     ))
     dataset_train.transform.global_min = dataset_train.global_min
     dataset_train.transform.global_max = dataset_train.global_max
     dataset_train.transform.global_mean = dataset_train.global_mean
     dataset_train.transform.global_std = dataset_train.global_std
+    dataset_train.transform.augment = True
     dataloader_train = DataLoader(dataset_train, batch_size=1000, shuffle=True, num_workers=os.cpu_count())
     
     # Load VALIDATION dataset
