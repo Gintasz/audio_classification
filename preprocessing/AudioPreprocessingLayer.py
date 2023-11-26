@@ -60,7 +60,8 @@ class AudioPreprocessingLayer(nn.Module):
         )
         self.noise_reduction_torchgate = TG(sr=resample_freq, nonstationary=False)
         
-        self.augment = Compose([
+        self.augment = augment
+        self.augment_transform = Compose([
             ApplyImpulseResponse(
                 ir_path="speech_commands/_impulse_responses_",
                 p=0.3
@@ -89,7 +90,7 @@ class AudioPreprocessingLayer(nn.Module):
         assert waveform.dim() == 2, "waveform is expected to be of shape (batch_size, num_samples)"
         if self.augment:
             waveform_np = waveform.numpy()
-            waveform_np = self.augment(samples=waveform_np, sample_rate=self.resample.new_freq)
+            waveform_np = self.augment_transform(samples=waveform_np, sample_rate=self.resample.new_freq)
             waveform = torch.from_numpy(waveform_np)
             # DEBUG:
             #import sounddevice as sd
