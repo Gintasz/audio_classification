@@ -12,7 +12,7 @@ class PrototypeRepresentationLayer(nn.Module):
         # Initialize the prototype MFCC vectors as parameters
         self.prototypes = nn.ParameterList([nn.Parameter(torch.rand(num_timesteps, num_coeffs), requires_grad=True) for i in range(num_prototypes)])
         fun = pysdtw.distance.pairwise_l2_squared
-        self.sdtw = pysdtw.SoftDTW(gamma=1.0, dist_func=fun, use_cuda=torch.cuda.is_available())
+        self.sdtw = pysdtw.SoftDTW(gamma=1.0, dist_func=fun, use_cuda=False)#torch.cuda.is_available())
 
     def forward(self, x: torch.Tensor):
         # Compute DTW distance between input x and all prototypes
