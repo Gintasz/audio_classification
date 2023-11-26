@@ -7,7 +7,6 @@ import numpy as np
 from noisereduce.torchgate import TorchGate as TG # type: ignore
 import pyloudnorm as pyln # type: ignore
 from audiomentations import Compose, AddBackgroundNoise, PolarityInversion, BandPassFilter, TanhDistortion, AddGaussianNoise, AddShortNoises, ApplyImpulseResponse, Gain, PitchShift, TimeStretch
-import sounddevice as sd
 
 
 import warnings
@@ -92,7 +91,9 @@ class AudioPreprocessingLayer(nn.Module):
             waveform_np = waveform.numpy()
             waveform_np = self.augment(samples=waveform_np, sample_rate=self.resample.new_freq)
             waveform = torch.from_numpy(waveform_np)
-            # DEBUG: sd.play(waveform_np.T, samplerate=self.resample.new_freq)
+            # DEBUG:
+            #import sounddevice as sd
+            #sd.play(waveform_np.T, samplerate=self.resample.new_freq)
         waveform = self.resample(waveform)
         waveform = self.noise_reduction_torchgate(waveform)
         assert not torch.any(torch.isnan(waveform)), "No element after noise_reduction_torchgate should be nan"
