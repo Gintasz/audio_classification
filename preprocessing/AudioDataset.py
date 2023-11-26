@@ -37,6 +37,7 @@ class AudioDataset(Dataset):
         
         audio_path, label = self.data[idx]
         waveform, sample_rate = torchaudio.load(audio_path)
+        waveform = waveform.float()
         transformed = self.transform(waveform) if self.transform else waveform
         transformed = transformed.squeeze(0) # remove the first dimension
         transformed = transformed.transpose(0, 1)

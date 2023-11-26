@@ -13,7 +13,7 @@ if __name__ == '__main__':
     
     # Load TRAINING dataset
     dataset_train = AudioDataset(dataset_path="dataset_train.txt", included_classes=labels, transform=AudioPreprocessingLayer(
-        input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000
+        input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000, augment=True
     ))
     dataset_train.transform.global_min = dataset_train.global_min
     dataset_train.transform.global_max = dataset_train.global_max
@@ -23,11 +23,11 @@ if __name__ == '__main__':
     
     # Load VALIDATION dataset
     dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", included_classes=labels, transform=AudioPreprocessingLayer(
-        input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000
+        input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000, augment=False
     ))
     dataset_validate.transform.global_mean = dataset_train.transform.global_mean
     dataset_validate.transform.global_std = dataset_train.transform.global_std
-    dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=True, num_workers=1)
+    dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=True, num_workers=4)
 
     # Initialize model
     model = OnePerClassPrototypeModel()
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     num_epochs = 1000
     validate_epoch_frequency = 10
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1, verbose=True)
 
     best_loss = float('inf')
@@ -96,6 +96,5 @@ if __name__ == '__main__':
 
             accuracy = total_correct / len(dataset_validate)
             avg_val_loss = total_val_loss / len(dataloader_validate)
-            print(f'Validation Accuracy: {accuracy}, Loss: {avg_val_loss}')
+            print(f'Epoch {epoch+1}/{num_epochs} VALIDATION, average Loss: {avg_val_loss}, Accuracy: {accuracy}')
             
-    # triplet loss?

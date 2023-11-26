@@ -1,5 +1,5 @@
 
-torch==2.1.1
+torch
 fastdtw==0.3.4
 scipy==1.11.3
 librosa==0.10.1
@@ -9,3 +9,8 @@ soundfile==0.12.1
 librosa==0.10.1
 pysdtw==0.0.5
 mypy
+noisereduce
+pyloudnorm
+audiomentations
+sounddevice
+# need CUDA <= 11.8
