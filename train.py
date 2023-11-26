@@ -6,7 +6,7 @@ from preprocessing.AudioPreprocessingLayer import AudioPreprocessingLayer
 from prototype_learning.OnePerClassPrototypeModel import OnePerClassPrototypeModel
 from prototype_learning.OnePerClassPrototypeModel2 import OnePerClassPrototypeModel2
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
+import os
 if __name__ == '__main__':
     print(f"Cuda available: {torch.cuda.is_available()}")
     labels = ["up", "down", "left", "right"]
@@ -19,7 +19,7 @@ if __name__ == '__main__':
     dataset_train.transform.global_max = dataset_train.global_max
     dataset_train.transform.global_mean = dataset_train.global_mean
     dataset_train.transform.global_std = dataset_train.global_std
-    dataloader_train = DataLoader(dataset_train, batch_size=1000, shuffle=True, num_workers=1)
+    dataloader_train = DataLoader(dataset_train, batch_size=1000, shuffle=True, num_workers=os.cpu_count())
     
     # Load VALIDATION dataset
     dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", included_classes=labels, transform=AudioPreprocessingLayer(
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     ))
     dataset_validate.transform.global_mean = dataset_train.transform.global_mean
     dataset_validate.transform.global_std = dataset_train.transform.global_std
-    dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=True, num_workers=4)
+    dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=True, num_workers=os.cpu_count())
 
     # Initialize model
     model = OnePerClassPrototypeModel()
