@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils.soft_dtw_cuda import SoftDTW
+import pysdtw
 from typing import List
 import torch
 
@@ -11,7 +11,8 @@ class PrototypeRepresentationLayer(nn.Module):
 
         # Initialize the prototype MFCC vectors as parameters
         self.prototypes = nn.ParameterList([nn.Parameter(torch.rand(num_timesteps, num_coeffs), requires_grad=True) for i in range(num_prototypes)])
-        self.sdtw = SoftDTW(use_cuda=torch.cuda.is_available(), gamma=0.1)
+        fun = pysdtw.distance.pairwise_l2_squared
+        self.sdtw = pysdtw.SoftDTW(gamma=1.0, dist_func=fun, use_cuda=torch.cuda.is_available())
 
     def forward(self, x: torch.Tensor):
         # Compute DTW distance between input x and all prototypes

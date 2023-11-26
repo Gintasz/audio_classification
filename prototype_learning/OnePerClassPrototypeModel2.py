@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from utils.soft_dtw_cuda import SoftDTW
 from typing import List
 import torch
 from .PrototypeRepresentationLayer import PrototypeRepresentationLayer
