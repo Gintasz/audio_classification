@@ -13,7 +13,7 @@ if __name__ == '__main__':
     labels = ["up", "down", "left", "right"]
     
     # Load TRAINING dataset
-    dataset_train = AudioDataset(dataset_path="dataset_train.txt", included_classes=labels, transform=AudioPreprocessingLayer(
+    dataset_train = AudioDataset(dataset_path="dataset_train.txt", enable_transform_cache=True, included_classes=labels, transform=AudioPreprocessingLayer(
         input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000, augment=False
     ))
     dataset_train.transform.global_min = dataset_train.global_min
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     dataloader_train = DataLoader(dataset_train, batch_size=1000, shuffle=True, num_workers=os.cpu_count())
     
     # Load VALIDATION dataset
-    dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", included_classes=labels, transform=AudioPreprocessingLayer(
+    dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", enable_transform_cache=True, included_classes=labels, transform=AudioPreprocessingLayer(
         input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000, augment=False
     ))
     dataset_validate.transform.global_mean = dataset_train.transform.global_mean

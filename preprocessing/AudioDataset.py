@@ -1,18 +1,17 @@
+# labels = ["bed", "bird", "cat", "dog", "down", "eight", "five", "four", "go", "happy", "house", "left", "marvin", "nine", "no", "off", "on", "one", "right", "seven", "sheila", "six", "stop", "three", "tree", "two", "up", "wow", "yes", "zero" ]
+import os
+import hashlib
 import csv
 from torch.utils.data import Dataset
 import torchaudio # type: ignore
 import torch
 import torch.nn as nn
-from typing import List, Dict, Tuple, Optional
-
-# labels = ["bed", "bird", "cat", "dog", "down", "eight", "five", "four", "go", "happy", "house", "left", "marvin", "nine", "no", "off", "on", "one", "right", "seven", "sheila", "six", "stop", "three", "tree", "two", "up", "wow", "yes", "zero" ]
-
-
+from typing import List, Optional, Tuple
 
 class AudioDataset(Dataset):
-    def __init__(self, dataset_path: str, included_classes: List[str], transform: Optional[nn.Module] = None):
+    def __init__(self, dataset_path: str, enable_transform_cache: bool, included_classes: List[str], transform: Optional[nn.Module] = None):
+        self.enable_transform_cache = enable_transform_cache
         self.transform = transform
-        self.cache = {}
         
         data: List[Tuple[str, str]] = []
         with open(dataset_path, 'r') as file:
@@ -25,24 +24,33 @@ class AudioDataset(Dataset):
         unique_labels_ids = {label: index for index, label in enumerate(unique_labels)}
         self.data = [(row[0], unique_labels_ids[row[1]]) for row in data]
         
+        self.cache_dir = 'cache_preprocessing'
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+        
         self.global_min, self.global_max, self.global_mean, self.global_std = self.calculate_global_stats()
-        self.cache = {} # we set mean & std to transform layer, so we need to clear cache to recompute the transform
+
 
     def __len__(self) -> int:
         return len(self.data)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
-        if idx in self.cache:
-            return self.cache[idx]
-        
         audio_path, label = self.data[idx]
-        waveform, sample_rate = torchaudio.load(audio_path)
-        waveform = waveform.float()
-        transformed = self.transform(waveform) if self.transform else waveform
-        transformed = transformed.squeeze(0) # remove the first dimension
-        transformed = transformed.transpose(0, 1)
-        item = transformed, label
-        self.cache[idx] = item
+        md5_hash = hashlib.md5(audio_path.encode()).hexdigest()
+        cache_path = os.path.join(self.cache_dir, md5_hash)
+
+        if self.global_minenable_transform_cache and os.path.exists(cache_path):
+            item = torch.load(cache_path)
+        else:
+            waveform, sample_rate = torchaudio.load(audio_path)
+            waveform = waveform.float()
+            transformed = self.transform(waveform) if self.transform else waveform
+            transformed = transformed.squeeze(0) # remove the first dimension
+            transformed = transformed.transpose(0, 1)
+            item = transformed, label
+            if self.enable_transform_cache:
+                torch.save(item, cache_path)
+            
         return item
     
     def get_example_audio(self, label_id: int) -> torch.Tensor:
