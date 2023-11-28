@@ -9,6 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import os
 if __name__ == '__main__':
     print(f"Cuda available: {torch.cuda.is_available()}")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     labels = ["up", "down", "left", "right"]
     
     # Load TRAINING dataset
@@ -31,7 +32,7 @@ if __name__ == '__main__':
     dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=True, num_workers=os.cpu_count())
 
     # Initialize model
-    model = OnePerClassPrototypeModel()
+    model = OnePerClassPrototypeModel().to(device)
     print(f"Number of model parameters: {sum(p.numel() for p in model.parameters())}")
 
     num_epochs = 1000
@@ -49,6 +50,8 @@ if __name__ == '__main__':
         batch_i = 0
         
         for batch_x, labels in dataloader_train:
+            batch_x = batch_x.to(device)
+            labels = labels.to(device)
             print(f"Batch {batch_i+1} / {len(dataloader_train)}")
             optimizer.zero_grad()
             
@@ -83,6 +86,8 @@ if __name__ == '__main__':
             batch_i = 0
         
             for batch_x, labels in dataloader_validate:
+                batch_x = batch_x.to(device)
+                labels = labels.to(device)
                 print(f"Validation Batch {batch_i+1} / {len(dataloader_validate)}")
             
                 model_out = model.forward(batch_x)

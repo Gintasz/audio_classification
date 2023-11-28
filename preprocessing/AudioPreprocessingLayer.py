@@ -62,10 +62,10 @@ class AudioPreprocessingLayer(nn.Module):
         
         self.augment = augment
         self.augment_transform = Compose([
-            ApplyImpulseResponse(
-                ir_path="speech_commands/_impulse_responses_",
-                p=0.3
-            ),
+                # ApplyImpulseResponse(
+                #     ir_path="speech_commands/_impulse_responses_",
+                #     p=0.3
+                # ),
             # AddBackgroundNoise(
             #     sounds_path="speech_commands/_background_noise_",
             #     min_snr_in_db=3.0,
@@ -73,12 +73,12 @@ class AudioPreprocessingLayer(nn.Module):
             #     # noise_transform=PolarityInversion(p=0.5),
             #     p=1
             # ),
-            BandPassFilter(p=0.3),
-            AddGaussianNoise(min_amplitude=0.00005, max_amplitude=0.0001, p=0.3),
-            TanhDistortion(p=0.3),
-            Gain(min_gain_in_db=-12, max_gain_in_db=12, p=0.3),
-            PitchShift(min_semitones=-4, max_semitones=4, p=0.3),
-            TimeStretch(min_rate=0.8, max_rate=1.25, p=0.3, leave_length_unchanged=True),
+            # BandPassFilter(p=0.3),
+                # AddGaussianNoise(min_amplitude=0.00005, max_amplitude=0.0001, p=0.3),
+            # TanhDistortion(p=0.3),
+            # Gain(min_gain_in_db=-12, max_gain_in_db=12, p=0.3), # harmful?
+                # PitchShift(min_semitones=-4, max_semitones=4, p=0.3),
+                # TimeStretch(min_rate=0.8, max_rate=1.25, p=0.3, leave_length_unchanged=True),
         ])
         
         self.global_min = None
