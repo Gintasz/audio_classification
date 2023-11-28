@@ -13,7 +13,7 @@ class PrototypeLoss(nn.Module):
         # class ids starts with 1
         return self.one_hot_classes[class_id - 1]
         
-    gamma = 0.01
+    gamma = 0.000001
     def forward(self, batch_distances: torch.Tensor, labels: torch.Tensor):
         assert batch_distances.dim() == 2, "distances is expected to be of shape (batch_size, num_prototypes)"
         assert labels.dim() == 1, "labels is expected to be of shape (batch_size,)"
@@ -61,23 +61,36 @@ class PrototypeLoss(nn.Module):
             
         
         # old but working loss
-        # for distances, label in zip(batch_distances, labels):
-        #     in_class_distance = distances[label]
-        #     out_class_distances = torch.cat((distances[:label], distances[label + 1:]))
-        #     out = -torch.logsumexp(-out_class_distances, dim=0) # log sum exp (soft min)
-        #     #loss += in_class_distance.pow(2) / out.pow(2) # 0.95% accuracy on training
-        #     loss += in_class_distance / out
-        # loss /= batch_size
+        for distances, label in zip(batch_distances, labels):
+            in_class_distance = distances[label]
+            out_class_distances = torch.cat((distances[:label], distances[label + 1:]))
+            out = -torch.logsumexp(-out_class_distances, dim=0) # log sum exp (soft min)
+            #loss += in_class_distance.pow(2) / out.pow(2) # 0.95% accuracy on training
+            # loss += in_class_distance / out
+            loss += (in_class_distance - distances.min()) / (distances - distances.min()).sum()
+        loss /= batch_size
+        
+        
+        #loss += in_class_distance / distances.sum()
         
         # https://openaccess.thecvf.com/content_cvpr_2018/papers/Yang_Robust_Classification_With_CVPR_2018_paper.pdf
         num_prototypes_per_class = 1
         
-        for distances, label in zip(batch_distances, labels):
-            l = -torch.log((-self.gamma * distances[label])/(-self.gamma * distances).exp().sum())
-            loss += l
-            # p_y_x = 0
-            # for j in range(0, num_prototypes_per_class):
-            #     p_x_mij = exp(-gamma * )
-            #     p_y_x += p_x_mij
-            # loss_datapoint = - log()
+        # for distances, label in zip(batch_distances, labels):
+        #     scaled_distances = distances
+        #     assert (-self.gamma * scaled_distances[label]) != 0
+        #     assert not torch.isnan((-self.gamma * scaled_distances[label]))
+        #     if (-self.gamma * scaled_distances).exp().sum() == 0:
+        #         print(scaled_distances)
+        #     assert (-self.gamma * scaled_distances).exp().sum() != 0
+        #     assert not torch.isnan((-self.gamma * scaled_distances).exp().sum())
+        #     assert (-self.gamma * scaled_distances[label])/(-self.gamma * scaled_distances).exp().sum() + 1e-5 > 0, "log of negative number"
+        #     l = -torch.log((-self.gamma * scaled_distances[label])/((-self.gamma * scaled_distances).exp().sum() + 1e-5))
+        #     assert l != 0 and not torch.isnan(l)
+        #     loss += l
+        #     # p_y_x = 0
+        #     # for j in range(0, num_prototypes_per_class):
+        #     #     p_x_mij = exp(-gamma * )
+        #     #     p_y_x += p_x_mij
+        #     # loss_datapoint = - log()
         return loss

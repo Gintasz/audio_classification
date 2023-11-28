@@ -39,7 +39,7 @@ class AudioDataset(Dataset):
         md5_hash = hashlib.md5(audio_path.encode()).hexdigest()
         cache_path = os.path.join(self.cache_dir, md5_hash)
 
-        if self.global_minenable_transform_cache and os.path.exists(cache_path):
+        if self.enable_transform_cache and os.path.exists(cache_path):
             item = torch.load(cache_path)
         else:
             waveform, sample_rate = torchaudio.load(audio_path)
