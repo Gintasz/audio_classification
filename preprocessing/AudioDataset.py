@@ -32,8 +32,8 @@ class AudioDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
-        # if idx in self.cache:
-        #     return self.cache[idx]
+        if idx in self.cache:
+            return self.cache[idx]
         
         audio_path, label = self.data[idx]
         waveform, sample_rate = torchaudio.load(audio_path)
