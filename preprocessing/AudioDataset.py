@@ -28,7 +28,10 @@ class AudioDataset(Dataset):
         if not os.path.exists(self.cache_dir):
             os.makedirs(self.cache_dir)
         
+        _cache_enabled = self.enable_transform_cache
+        self.enable_transform_cache = False
         self.global_min, self.global_max, self.global_mean, self.global_std = self.calculate_global_stats()
+        self.enable_transform_cache = _cache_enabled
 
 
     def __len__(self) -> int:

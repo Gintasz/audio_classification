@@ -58,7 +58,7 @@ if __name__ == '__main__':
             model_out = model.forward(batch_x)
             loss = model.loss(model_out, labels)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 20.0)
             optimizer.step()
             
             total_loss += loss.item()

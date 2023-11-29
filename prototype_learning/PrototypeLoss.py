@@ -14,6 +14,7 @@ class PrototypeLoss(nn.Module):
         return self.one_hot_classes[class_id - 1]
         
     gamma = 0.000001
+    loss_type = 0
     def forward(self, batch_distances: torch.Tensor, labels: torch.Tensor):
         assert batch_distances.dim() == 2, "distances is expected to be of shape (batch_size, num_prototypes)"
         assert labels.dim() == 1, "labels is expected to be of shape (batch_size,)"
@@ -66,8 +67,10 @@ class PrototypeLoss(nn.Module):
             out_class_distances = torch.cat((distances[:label], distances[label + 1:]))
             out = -torch.logsumexp(-out_class_distances, dim=0) # log sum exp (soft min)
             #loss += in_class_distance.pow(2) / out.pow(2) # 0.95% accuracy on training
-            # loss += in_class_distance / out
-            loss += (in_class_distance - distances.min()) / (distances - distances.min()).sum()
+            if self.loss_type == 0:
+                loss += in_class_distance / out
+            else:
+                loss += (in_class_distance - distances.min()) / (distances - distances.min()).sum()
         loss /= batch_size
         
         
