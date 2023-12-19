@@ -32,6 +32,7 @@ class ConformerModel(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
         lengths = torch.full((batch_size,), 81, dtype=torch.int64)
+        lengths = lengths.to(x.device)
         x, _ = self.conformer1(x, lengths)
         x = self.pooling(x.transpose(1, 2))
         x = self.flatten(x)
