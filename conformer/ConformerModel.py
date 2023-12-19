@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torchaudio.models
+import torchaudio.models  # type: ignore
 import torch.nn.functional as F
 
 class ConformerModel(nn.Module):
@@ -8,20 +8,20 @@ class ConformerModel(nn.Module):
         super(ConformerModel, self).__init__()
         self.num_classes = num_classes
         
-        self.conformer_layers = nn.Sequential(
-            torchaudio.models.Conformer(
-                input_dim=80,  # Example value, adjust based on preprocessing
-                num_heads=8,   # Self-attention heads
-                ffn_dim=2048,  # Feed-forward network dimension
-                num_layers=12, # Number of Conformer layers
-                num_classes=num_classes  # Number of classes
-            )
+        self.conformer1 = torchaudio.models.Conformer(
+            input_dim=128, # number of coeffs per single timestep
+            num_heads=8,
+            ffn_dim=128,
+            num_layers=4,
+            depthwise_conv_kernel_size=31,
         )
         
-        self.pooling = nn.AdaptiveAvgPool2d((1, None))
-        feature_size = 128
+        self.pooling = nn.AdaptiveAvgPool1d(1)
+        self.flatten = nn.Flatten()
+        
+        self.fc = nn.Linear(128, num_classes)
         self.classifier = nn.Sequential(
-            nn.Linear(feature_size, 64),  # Adjust the input dimensions
+            nn.Linear(128, 64),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(64, num_classes)
@@ -30,12 +30,19 @@ class ConformerModel(nn.Module):
         self.loss_function = nn.CrossEntropyLoss()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.preprocess(x)
-        x = self.conformer_layers(x)
-        x = self.pooling(x).squeeze(dim=2)
+        batch_size = x.size(0)
+        lengths = torch.full((batch_size,), 81, dtype=torch.int64)
+        x, _ = self.conformer1(x, lengths)
+        x = self.pooling(x.transpose(1, 2))
+        x = self.flatten(x)
+        
         x = self.classifier(x)
-        return x
+        
+        pred_labels = torch.argmax(x, dim=1)
+        return x, pred_labels
     
-    def loss(self, predictions: torch.Tensor, targets: torch.Tensor):
+    def loss(self, model_out, targets: torch.Tensor):
+        predictions, _ = model_out
         targets_one_hot_encoded = F.one_hot(targets, num_classes=self.num_classes)
+        targets_one_hot_encoded = targets_one_hot_encoded.to(torch.float32)
         return self.loss_function(predictions, targets_one_hot_encoded)

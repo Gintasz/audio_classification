@@ -30,16 +30,16 @@ if __name__ == '__main__':
         exit(1)
     
     # Load min, max, mean, std of audio features so we can standardise
-    with open('dataset_train_stats.pkl', 'wb') as f:
-        dataset_train_stats = dataset_train.calculate_global_stats()
-        pickle.dump(dataset_train_stats, f)
+    # with open('dataset_train_stats.pkl', 'wb') as f:
+    #     dataset_train_stats = dataset_train.calculate_global_stats()
+    #     pickle.dump(dataset_train_stats, f)
     
-    with open('dataset_train_stats.pkl', 'rb') as f:
-        global_min, global_max, global_mean, global_std = pickle.load(f)
-        preprocessing.global_min = global_min
-        preprocessing.global_max = global_max
-        preprocessing.global_mean = global_mean
-        preprocessing.global_std = global_std
+    # with open('dataset_train_stats.pkl', 'rb') as f:
+    #     global_min, global_max, global_mean, global_std = pickle.load(f)
+    #     preprocessing.global_min = global_min
+    #     preprocessing.global_max = global_max
+    #     preprocessing.global_mean = global_mean
+    #     preprocessing.global_std = global_std
 
     # Initialize model
     model = ConformerModel(num_classes=len(labels)).to(device)
