@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchaudio.transforms import Resample, Loudness, Spectrogram, ComputeDeltas, AmplitudeToDB, InverseSpectrogram, MFCC # type: ignore
+from torchaudio.transforms import Resample, Loudness, Spectrogram, ComputeDeltas, AmplitudeToDB, InverseSpectrogram, MFCC, MelSpectrogram # type: ignore
 import torch.nn.functional as F
 from torchaudio.functional import compute_deltas  # type: ignore
 import numpy as np
@@ -58,6 +58,7 @@ class AudioPreprocessingLayer(nn.Module):
             sample_rate=resample_freq,
             n_mfcc=n_mfcc,
         )
+        self.mel_spectrogram = MelSpectrogram(sample_rate=resample_freq)
         self.noise_reduction_torchgate = TG(sr=resample_freq, nonstationary=False)
         
         self.augment = augment
@@ -96,21 +97,24 @@ class AudioPreprocessingLayer(nn.Module):
             #import sounddevice as sd
             #sd.play(waveform_np.T, samplerate=self.resample.new_freq)
         waveform = self.resample(waveform)
-        waveform = self.noise_reduction_torchgate(waveform)
+        # waveform = self.noise_reduction_torchgate(waveform)
         assert not torch.any(torch.isnan(waveform)), "No element after noise_reduction_torchgate should be nan"
-        waveform = level_volume(waveform, self.resample.new_freq)
-        waveform = pre_emphasize(waveform)
-        # waveform = normalize_waveform(waveform, 0.5)
+        # waveform = level_volume(waveform, self.resample.new_freq)
+        # waveform = pre_emphasize(waveform)
+        waveform = normalize_waveform(waveform, 0.5)
         padded_waveform = pad_sequence(waveform, self.max_length)
         assert padded_waveform.size(1) <= self.max_length, "padded sequence length is greater than max length"
 
         
-        mfcc = self.mfcc_transform(padded_waveform)
-        if self.global_mean is not None and self.global_std is not None:
-            mfcc = (mfcc - self.global_mean.view(1, -1, 1)) / (self.global_std.view(1, -1, 1) + 1e-6)
+        spectrogram = self.mel_spectrogram(padded_waveform)
+        return spectrogram
+    
+        # mfcc = self.mfcc_transform(padded_waveform)
+        # if self.global_mean is not None and self.global_std is not None:
+        #     mfcc = (mfcc - self.global_mean.view(1, -1, 1)) / (self.global_std.view(1, -1, 1) + 1e-6)
             
-        mfcc_delta = ComputeDeltas()(mfcc)
-        mfcc_delta2 = ComputeDeltas()(mfcc_delta)        
-        mfcc_with_derivatives = torch.cat((mfcc, mfcc_delta, mfcc_delta2), dim=1)
+        # mfcc_delta = ComputeDeltas()(mfcc)
+        # mfcc_delta2 = ComputeDeltas()(mfcc_delta)        
+        # mfcc_with_derivatives = torch.cat((mfcc, mfcc_delta, mfcc_delta2), dim=1)
         
-        return mfcc_with_derivatives
+        # return mfcc_with_derivatives

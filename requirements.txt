@@ -13,4 +13,7 @@ noisereduce
 pyloudnorm
 audiomentations
 sounddevice
+matplotlib
+
+seaborn
 # need CUDA <= 11.8
