@@ -9,6 +9,7 @@ from sklearn.metrics import classification_report
 from prototype_learning.OnePerClassPrototypeModel import OnePerClassPrototypeModel
 from preprocessing.AudioPreprocessingLayer import AudioPreprocessingLayer
 from preprocessing.AudioDataset import AudioDataset
+from conformer.CNNModel import CNNModel
 from torch.utils.data import DataLoader
 import os
 
@@ -40,9 +41,15 @@ def evaluate_model(dataloader, model, device):
     return accuracy, precision, recall, specificity, conf_matrix
 
 # Load model
-device = 'cpu'
-model = OnePerClassPrototypeModel(num_classes=len(labels)).to(device)
-model.load_state_dict(torch.load("model.pt"))
+device = 'cuda'
+model = CNNModel(
+        num_classes=len(labels),
+        activation_function='relu',
+        dropout2d_rate=0,
+        skip_connections=False,
+        smooth_labels_epsilon=0.1
+    ).to(device)
+model.load_state_dict(torch.load("model.pt", map_location=torch.device(device)))
 model.eval()
 
 # Load datasets and create dataloaders
@@ -51,26 +58,15 @@ audio_preprocess = AudioPreprocessingLayer(
 )
 # Load TRAINING dataset
 dataset_train = AudioDataset(dataset_path="dataset_train.txt", included_classes=labels, enable_transform_cache=True, cache_in_memory=False, transform=audio_preprocess)
-dataloader_train = DataLoader(dataset_train, batch_size=1000, shuffle=False, num_workers=0)
+dataloader_train = DataLoader(dataset_train, batch_size=50, shuffle=False, num_workers=0)
 
 # Load VALIDATION dataset
 dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", included_classes=labels, enable_transform_cache=True, cache_in_memory=False, transform=audio_preprocess)
-dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=False, num_workers=0)
-dataset_validate.global_min = dataset_train.global_min
-dataset_validate.global_max = dataset_train.global_max
-dataset_validate.global_mean = dataset_train.global_mean
-dataset_validate.global_std = dataset_train.global_std
+dataloader_validate = DataLoader(dataset_validate, batch_size=50, shuffle=False, num_workers=0)
 
 # Load TESTING dataset
 dataset_test = AudioDataset(dataset_path="dataset_test.txt", included_classes=labels, enable_transform_cache=True, cache_in_memory=False, transform=audio_preprocess)
-dataloader_test = DataLoader(dataset_test, batch_size=1000, shuffle=False, num_workers=0)
-dataset_test.global_min = dataset_train.global_min
-dataset_test.global_max = dataset_train.global_max
-dataset_test.global_mean = dataset_train.global_mean
-dataset_test.global_std = dataset_train.global_std
-
-# metrics_validate = evaluate_model(dataloader_validate, model, device)
-# metrics_test = evaluate_model(dataloader_test, model, device)
+dataloader_test = DataLoader(dataset_test, batch_size=50, shuffle=False, num_workers=0)
 
 metrics = evaluate_model(dataloader_validate, model, device)
 name = "Validation"

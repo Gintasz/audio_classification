@@ -1,95 +1,73 @@
-# import os
-# os.chdir('/Users/gintas/Documents/SchoolProjects/balsas_lab2/balsas-lab2')
-
 import torch
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-from sklearn.metrics import classification_report
-from prototype_learning.OnePerClassPrototypeModel import OnePerClassPrototypeModel
-from preprocessing.AudioPreprocessingLayer import AudioPreprocessingLayer
+import torch.nn as nn
 from preprocessing.AudioDataset import AudioDataset
 from torch.utils.data import DataLoader
+from preprocessing.AudioPreprocessingLayer import AudioPreprocessingLayer
+from prototype_learning.OnePerClassPrototypeModel import OnePerClassPrototypeModel
+from conformer.ConformerModel import ConformerModel
+from conformer.TransformerModel import TransformerModel
+from conformer.CNNModel import CNNModel
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import os
-import numpy as np
-
-labels = ["up", "down", "left", "right", "go", "no", "stop", "yes"]
+import pickle
 
 if __name__ == '__main__':
-    # Evaluation function
-    def evaluate_model(dataset, dataloader, model, device):
-        # batch_x = torch.stack([x for x, _ in dataset_train])
-        # labels = torch.tensor([label for _, label in dataset_train])
-        
-        true_labels = np.array([])
-        predicted_labels = np.array([])
-
-        with torch.no_grad():
-            for batch_x, labels in dataloader:
-                batch_x, labels = batch_x.to(device), labels.to(device)
-                model_out = model(batch_x)
-                _, pred_y = model_out
-                true_labels = np.append(true_labels, labels.cpu().numpy())
-                predicted_labels = np.append(predicted_labels, pred_y.cpu().numpy())
-
-        class_counts = np.bincount(true_labels.astype(int))
-        print(class_counts)
-
-        # Metrics
-        accuracy = accuracy_score(true_labels, predicted_labels)
-        precision = precision_score(true_labels, predicted_labels, average='macro')
-        recall = recall_score(true_labels, predicted_labels, average='macro')  # Sensitivity
-        conf_matrix = confusion_matrix(true_labels, predicted_labels)
-        tn = conf_matrix[0, 0]
-        fp = conf_matrix[0, 1]
-        fn = conf_matrix[1, 0]
-        tp = conf_matrix[1, 1]
-        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
-        return accuracy, precision, recall, specificity, conf_matrix
-
-    # Load model
-    device = 'cpu'
-    model = OnePerClassPrototypeModel(num_classes=len(labels)).to(device)
-    model.load_state_dict(torch.load("model.pt"))
-    model.eval()
-
-    # Load datasets and create dataloaders
-    audio_preprocess = AudioPreprocessingLayer(
-        input_freq=16000, resample_freq=16000, n_mfcc=13, max_duration_ms=1000, augment=False
-    )
+    print(f"Cuda available: {torch.cuda.is_available()}")
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    labels = ["up", "down", "left", "right", "go", "no", "stop", "yes"]
+    preprocessing = AudioPreprocessingLayer(input_freq = 16000, resample_freq = 16000, n_mfcc = 13, max_duration_ms = 1000, augment=False)
+    
     # Load TRAINING dataset
-    dataset_train = AudioDataset(dataset_path="dataset_train.txt", included_classes=labels, enable_transform_cache=False, cache_in_memory=False, transform=audio_preprocess)
-    dataloader_train = DataLoader(dataset_train, batch_size=len(dataset_train), shuffle=True, num_workers=0)
-
+    dataset_train = AudioDataset(dataset_path="dataset_train.txt", enable_transform_cache=True, cache_in_memory=True, included_classes=labels, transform=preprocessing)
+    dataloader_train = DataLoader(dataset_train, batch_size=100, shuffle=True, num_workers=0)
+    if not dataset_train.validate_dataset():
+        print("Training dataset failed validation.")
+        exit(1)
+    
     # Load VALIDATION dataset
-    dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", included_classes=labels, enable_transform_cache=False, cache_in_memory=False, transform=audio_preprocess)
-    dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=False, num_workers=0)
-    dataset_validate.global_min = dataset_train.global_min
-    dataset_validate.global_max = dataset_train.global_max
-    dataset_validate.global_mean = dataset_train.global_mean
-    dataset_validate.global_std = dataset_train.global_std
+    dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", enable_transform_cache=True, cache_in_memory=True, included_classes=labels, transform=preprocessing)
+    dataloader_validate = DataLoader(dataset_validate, batch_size=100, shuffle=True, num_workers=0)
+    if not dataset_validate.validate_dataset():
+        print("Validation dataset failed validation.")
+        exit(1)
+    
+    # Initialize model
+    model = CNNModel(
+        num_classes=len(labels),
+        activation_function='relu',
+        dropout2d_rate=0,
+        skip_connections=False,
+        smooth_labels_epsilon=0.1
+    ).to(device)
+    print(f"Number of model parameters: {sum(p.numel() for p in model.parameters())}")
+    
+    # Load existing weights if they exist
+    if os.path.exists("model.pt"):
+        model.load_state_dict(torch.load("model.pt"))
+        print("Loaded saved model weights.")
 
-    # Load TESTING dataset
-    dataset_test = AudioDataset(dataset_path="dataset_test.txt", included_classes=labels, enable_transform_cache=False, cache_in_memory=False, transform=audio_preprocess)
-    dataloader_test = DataLoader(dataset_test, batch_size=1000, shuffle=False, num_workers=0)
-    dataset_test.global_min = dataset_train.global_min
-    dataset_test.global_max = dataset_train.global_max
-    dataset_test.global_mean = dataset_train.global_mean
-    dataset_test.global_std = dataset_train.global_std
+    print("Validating...")
+    model.eval()
+    total_val_loss = 0
+    total_correct = 0
+    batch_i = 0
 
-    class_counts = {}
-    for x, y in dataset_train:
-        class_counts[int(y)] = class_counts.get(int(y), 0) + 1
-    print(class_counts)
+    for batch_x, labels in dataloader_validate:
+        batch_x = batch_x.to(device)
+        labels = labels.to(device)
+        print(f"Validation Batch {batch_i+1} / {len(dataloader_validate)}")
+    
+        model_out = model.forward(batch_x)
+        loss = model.loss(model_out, labels)
+    
+        total_val_loss += loss.item()
+        batch_i += 1
 
-    metrics = evaluate_model(dataset_validate, dataloader_validate, model, device)
-    name = "Validation"
-    accuracy, precision, recall, specificity, conf_matrix = metrics
-    print(f"{name} Dataset:")
-    print(f"Accuracy: {accuracy}, Precision: {precision}, Recall (Sensitivity): {recall}, Specificity: {specificity}\n")
-    print(conf_matrix)
-    sns.heatmap(conf_matrix, annot=True, fmt='d', xticklabels=labels, yticklabels=labels)
-    plt.title(f"{name} Confusion Matrix")
-    plt.xlabel('Predicted Labels')
-    plt.ylabel('True Labels')
-    plt.show()
+        # Calculate accuracy
+        _, pred_y = model_out
+        total_correct += torch.sum(pred_y == labels).item()
+
+    accuracy = total_correct / len(dataset_validate)
+    avg_val_loss = total_val_loss / len(dataloader_validate)
+    print(f'VALIDATION, average Loss: {avg_val_loss}, Accuracy: {accuracy}')
+    
