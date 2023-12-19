@@ -13,18 +13,18 @@ class ConformerModel(nn.Module):
             num_heads=8,
             ffn_dim=128,
             num_layers=4,
-            depthwise_conv_kernel_size=31,
+            depthwise_conv_kernel_size=3,
         )
         
         self.pooling = nn.AdaptiveAvgPool1d(1)
         self.flatten = nn.Flatten()
         
-        self.fc = nn.Linear(128, num_classes)
         self.classifier = nn.Sequential(
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(64, num_classes)
+            # nn.Linear(128, 64),
+            # nn.ReLU(),
+            # nn.Dropout(0.5),
+            nn.Softmax(dim=1),
+            nn.Linear(128, num_classes)
         )
         
         self.loss_function = nn.CrossEntropyLoss()
@@ -32,9 +32,10 @@ class ConformerModel(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
         lengths = torch.full((batch_size,), 81, dtype=torch.int64)
+        lengths = lengths.to(x.device)
         x, _ = self.conformer1(x, lengths)
-        x = self.pooling(x.transpose(1, 2))
-        x = self.flatten(x)
+        # x = self.pooling(x.transpose(1, 2))
+        x = x.mean(dim=1)
         
         x = self.classifier(x)
         
