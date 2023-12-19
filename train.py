@@ -10,6 +10,14 @@ from conformer.CNNModel import CNNModel
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import os
 import pickle
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
+from sklearn.metrics import f1_score
+import csv
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 
 if __name__ == '__main__':
     print(f"Cuda available: {torch.cuda.is_available()}")
@@ -29,6 +37,13 @@ if __name__ == '__main__':
     dataloader_validate = DataLoader(dataset_validate, batch_size=100, shuffle=True, num_workers=0)
     if not dataset_validate.validate_dataset():
         print("Validation dataset failed validation.")
+        exit(1)
+        
+    # Load TEST dataset
+    dataset_test = AudioDataset(dataset_path="dataset_test.txt", enable_transform_cache=True, cache_in_memory=True, included_classes=labels, transform=preprocessing)
+    dataloader_test = DataLoader(dataset_test, batch_size=100, shuffle=True, num_workers=0)
+    if not dataset_test.validate_dataset():
+        print("Test dataset failed validation.")
         exit(1)
     
     # Load min, max, mean, std of audio features so we can standardise
@@ -75,7 +90,7 @@ if __name__ == '__main__':
         for batch_x, labels in dataloader_train:
             batch_x = batch_x.to(device)
             labels = labels.to(device)
-            print(f"Batch {batch_i+1} / {len(dataloader_train)}")
+            # print(f"Batch {batch_i+1} / {len(dataloader_train)}")
             optimizer.zero_grad()
             
             model_out = model.forward(batch_x)
@@ -96,11 +111,6 @@ if __name__ == '__main__':
         accuracy = total_correct / len(dataset_train)
         print(f'Epoch {epoch+1}/{num_epochs}, average Loss: {avg_loss}, Accuracy: {accuracy}')
         scheduler.step(avg_loss)
-            
-        if accuracy < best_accuracy:
-            best_accuracy = accuracy
-            torch.save(model.state_dict(), f'model.pt')
-            print(f'Model saved to file.')
 
             
         # VALIDATE
@@ -114,7 +124,7 @@ if __name__ == '__main__':
             for batch_x, labels in dataloader_validate:
                 batch_x = batch_x.to(device)
                 labels = labels.to(device)
-                print(f"Validation Batch {batch_i+1} / {len(dataloader_validate)}")
+                # print(f"Validation Batch {batch_i+1} / {len(dataloader_validate)}")
             
                 model_out = model.forward(batch_x)
                 loss = model.loss(model_out, labels)
@@ -129,4 +139,68 @@ if __name__ == '__main__':
             accuracy = total_correct / len(dataset_validate)
             avg_val_loss = total_val_loss / len(dataloader_validate)
             print(f'Epoch {epoch+1}/{num_epochs} VALIDATION, average Loss: {avg_val_loss}, Accuracy: {accuracy}')
+            
+            if accuracy < best_accuracy:
+                best_accuracy = accuracy
+                torch.save(model.state_dict(), f'model.pt')
+                print(f'Model saved to file.')
+            
+            print("Testing...")
+            model.eval()
+            total_test_loss = 0
+            total_correct = 0
+            batch_i = 0
+        
+            true_labels = []
+            pred_labels = []
+            for batch_x, labels in dataloader_test:
+                batch_x = batch_x.to(device)
+                labels = labels.to(device)
+                # print(f"Test Batch {batch_i+1} / {len(dataloader_test)}")
+            
+                model_out = model.forward(batch_x)
+                loss = model.loss(model_out, labels)
+            
+                total_test_loss += loss.item()
+                batch_i += 1
+
+                # Calculate accuracy
+                _, pred_y = model_out
+                total_correct += torch.sum(pred_y == labels).item()
+                true_labels.append(labels.cpu())
+                pred_labels.append(pred_y.cpu())
+                
+            true_labels = torch.cat(true_labels).numpy()
+            pred_labels = torch.cat(pred_labels).numpy()
+
+            accuracy = total_correct / len(dataset_test)
+            precision = precision_score(true_labels, pred_labels, average='weighted')
+            recall = recall_score(true_labels, pred_labels, average='weighted')
+            conf_matrix = confusion_matrix(true_labels, pred_labels)
+            tn = conf_matrix[0, 0]
+            fp = conf_matrix[0, 1]
+            fn = conf_matrix[1, 0]
+            tp = conf_matrix[1, 1]
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+            avg_test_loss = total_test_loss / len(dataloader_test)
+            print(f'Epoch {epoch+1}/{num_epochs} TEST, average Loss: {avg_val_loss}, Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, Specificity: {specificity}')
+
+            # Append to history_test.csv
+            with open('history_test.csv', 'a') as f:
+                writer = csv.writer(f)
+                writer.writerow([epoch, accuracy, precision, recall, specificity])
+
+            # Save confusion matrix image
+            if not os.path.exists('output'):
+                os.makedirs('output')
+                
+            plt.figure(figsize=(150,150))
+            sns.heatmap(conf_matrix, annot=True, fmt='d', xticklabels=labels, yticklabels=labels)
+            plt.title(f"Test Confusion Matrix")
+            plt.xlabel('Predicted Labels')
+            plt.ylabel('True Labels')
+            plt.show()
+            plt.savefig(f'output/{epoch}_test_confusion.png')
+            print("Confusion Matrix:")
+            print(conf_matrix)
             
