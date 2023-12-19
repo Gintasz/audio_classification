@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 from preprocessing.AudioPreprocessingLayer import AudioPreprocessingLayer
 from prototype_learning.OnePerClassPrototypeModel import OnePerClassPrototypeModel
 from conformer.ConformerModel import ConformerModel
+from conformer.TransformerModel import TransformerModel
+from conformer.CNNModel import CNNModel
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import os
 import pickle
@@ -17,14 +19,14 @@ if __name__ == '__main__':
     
     # Load TRAINING dataset
     dataset_train = AudioDataset(dataset_path="dataset_train.txt", enable_transform_cache=True, cache_in_memory=True, included_classes=labels, transform=preprocessing)
-    dataloader_train = DataLoader(dataset_train, batch_size=1000, shuffle=True, num_workers=0)
+    dataloader_train = DataLoader(dataset_train, batch_size=100, shuffle=True, num_workers=0)
     if not dataset_train.validate_dataset():
         print("Training dataset failed validation.")
         exit(1)
     
     # Load VALIDATION dataset
     dataset_validate = AudioDataset(dataset_path="dataset_validate.txt", enable_transform_cache=True, cache_in_memory=True, included_classes=labels, transform=preprocessing)
-    dataloader_validate = DataLoader(dataset_validate, batch_size=1000, shuffle=True, num_workers=0)
+    dataloader_validate = DataLoader(dataset_validate, batch_size=100, shuffle=True, num_workers=0)
     if not dataset_validate.validate_dataset():
         print("Validation dataset failed validation.")
         exit(1)
@@ -42,7 +44,13 @@ if __name__ == '__main__':
     #     preprocessing.global_std = global_std
 
     # Initialize model
-    model = ConformerModel(num_classes=len(labels)).to(device)
+    model = CNNModel(
+        num_classes=len(labels),
+        activation_function='relu',
+        dropout2d_rate=0,
+        skip_connections=False,
+        smooth_labels_epsilon=0.1
+    ).to(device)
     print(f"Number of model parameters: {sum(p.numel() for p in model.parameters())}")
     
     # Load existing weights if they exist
@@ -52,8 +60,8 @@ if __name__ == '__main__':
 
     num_epochs = 1000
     validate_epoch_frequency = 5
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, verbose=True)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 
     best_accuracy = float('inf')
     for index, epoch in enumerate(range(num_epochs)):
